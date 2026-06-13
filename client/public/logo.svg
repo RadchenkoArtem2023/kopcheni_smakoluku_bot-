@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 280" fill="none">
+  <!-- Flame -->
+  <path d="M200 18c-8 22-28 32-28 54 0 18 12 30 28 30s28-12 28-30c0-22-20-32-28-54z" fill="#C41E1E"/>
+  <path d="M200 38c-4 12-14 18-14 30 0 10 6 16 14 16s14-6 14-16c0-12-10-18-14-30z" fill="#E85D04"/>
+  <path d="M200 58c-2 6-6 9-6 15 0 5 3 8 6 8s6-3 6-8c0-6-4-9-6-15z" fill="#FFB703"/>
+
+  <!-- Top decorative line -->
+  <path d="M60 88h280" stroke="#1a1a1a" stroke-width="2"/>
+  <path d="M60 88c-8 0-12-4-12-8s4-8 12-8" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <path d="M340 88c8 0 12-4 12-8s-4-8-12-8" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <circle cx="200" cy="88" r="4" fill="#1a1a1a"/>
+
+  <!-- Main text -->
+  <text x="200" y="128" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="bold" fill="#8B1A1A" letter-spacing="2">'</text>
+  <text x="200" y="168" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="36" font-weight="bold" fill="#8B1A1A" letter-spacing="2">!</text>
+
+  <!-- Bottom decorative line -->
+  <path d="M60 188h280" stroke="#1a1a1a" stroke-width="2"/>
+  <path d="M60 188c-8 0-12 4-12 8s4 8 12 8" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <path d="M340 188c8 0 12 4 12 8s-4 8-12 8" stroke="#1a1a1a" stroke-width="2" fill="none"/>
+  <circle cx="200" cy="188" r="4" fill="#1a1a1a"/>
+
+  <!-- Tagline -->
+  <text x="200" y="218" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#1a1a1a" letter-spacing="1">" ?@5<VC< O:VABL "</text>
+</svg>
