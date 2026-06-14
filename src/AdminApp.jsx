@@ -14,14 +14,46 @@ const STATUS_COLORS = {
   cancelled: '#EF4444',
 };
 
-function OrdersTab({ orders, statuses, onStatusChange }) {
+const ORDER_STATUS_ORDER = [
+  'new',
+  'confirmed',
+  'preparing',
+  'delivering',
+  'completed',
+  'cancelled',
+];
+
+function OrdersTab({ orders, statuses, onStatusChange, orderSort, onSortChange }) {
   if (orders.length === 0) {
     return <p className="empty-state">Замовлень поки немає</p>;
   }
 
+  const sortedOrders = [...orders].sort((a, b) => {
+    if (orderSort === 'status') {
+      const statusIndexA = ORDER_STATUS_ORDER.indexOf(a.status);
+      const statusIndexB = ORDER_STATUS_ORDER.indexOf(b.status);
+      if (statusIndexA !== statusIndexB) {
+        return statusIndexA - statusIndexB;
+      }
+      return new Date(b.created_at) - new Date(a.created_at);
+    }
+
+    return new Date(b.created_at) - new Date(a.created_at);
+  });
+
   return (
+    <> 
+      <div className="order-sorting">
+        <label>
+          Сортувати:
+          <select value={orderSort} onChange={(e) => onSortChange(e.target.value)}>
+            <option value="created_at">За датою</option>
+            <option value="status">За статусом</option>
+          </select>
+        </label>
+      </div>
     <div className="orders-list">
-      {orders.map((order) => (
+      {sortedOrders.map((order) => (
         <article key={order.id} className="order-card">
           <div className="order-card-header">
             <div>
@@ -168,14 +200,14 @@ function ProductsTab({ products, onAdd, onUpdate, onDelete }) {
               <button
                 type="button"
                 className={`toggle-btn ${product.is_stop_listed ? 'active' : ''}`}
-                onClick={() => onUpdate(product.id, { is_stop_listed: product.is_stop_listed ? 0 : 1 })}
+                onClick={() => onUpdate(product.id, { is_stop_listed: !product.is_stop_listed })}
               >
                 {product.is_stop_listed ? '✓ Стоп-лист' : 'Стоп-лист'}
               </button>
               <button
                 type="button"
                 className="toggle-btn"
-                onClick={() => onUpdate(product.id, { is_active: product.is_active ? 0 : 1 })}
+                onClick={() => onUpdate(product.id, { is_active: !product.is_active })}
               >
                 {product.is_active ? 'Активна' : 'Неактивна'}
               </button>
@@ -204,6 +236,7 @@ export default function AdminApp() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [statuses, setStatuses] = useState({});
+  const [orderSort, setOrderSort] = useState('created_at');
 
   const loadData = async () => {
     try {
@@ -285,6 +318,8 @@ export default function AdminApp() {
             orders={orders}
             statuses={statuses}
             onStatusChange={handleStatusChange}
+            orderSort={orderSort}
+            onSortChange={setOrderSort}
           />
         )}
         {tab === 'products' && (
