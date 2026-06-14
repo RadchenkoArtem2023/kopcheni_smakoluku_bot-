@@ -20,12 +20,14 @@ export function ProductCard({ product, grams, onGramsChange }) {
     }
   };
 
+  const pricePerKg = product.price_per_100g * 10;
+
   return (
     <article className="product-card">
       <div className="product-info">
         <h3>{product.name}</h3>
         {product.description && <p className="product-desc">{product.description}</p>}
-        <p className="product-price">{formatPrice(product.price_per_100g)} / 100 г</p>
+        <p className="product-price">{formatPrice(pricePerKg)} / кг</p>
       </div>
 
       <div className="quantity-control">

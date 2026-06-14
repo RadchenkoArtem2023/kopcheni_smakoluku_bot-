@@ -47,6 +47,17 @@ export default function App() {
 
   const normalizedProducts = Array.isArray(products) ? products : [];
 
+  const groupedProducts = normalizedProducts.reduce((groups, product) => {
+    const category = product.category || 'Інші';
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(product);
+    return groups;
+  }, {});
+
+  const groupedEntries = Object.entries(groupedProducts);
+
   const cartItems = useMemo(() => {
     return normalizedProducts
       .filter((p) => cart[p.id] > 0)
@@ -154,16 +165,21 @@ export default function App() {
           <h2>Меню</h2>
           <p className="menu-hint">Вкажіть кількість у грамах (мін. 50 г)</p>
 
-          <div className="product-list">
-            {products.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                grams={cart[product.id] || 0}
-                onGramsChange={(g) => handleGramsChange(product.id, g)}
-              />
-            ))}
-          </div>
+          {groupedEntries.map(([category, items]) => (
+            <section key={category} className="product-group">
+              <h3 className="group-title">{category}</h3>
+              <div className="product-list">
+                {items.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    grams={cart[product.id] || 0}
+                    onGramsChange={(g) => handleGramsChange(product.id, g)}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
 
           {products.length === 0 && (
             <p className="empty-state">Наразі немає доступних позицій</p>

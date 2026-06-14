@@ -71,6 +71,7 @@ function ProductsTab({ products, onAdd, onUpdate, onDelete }) {
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
+    category: '',
     price_per_100g: '',
   });
 
@@ -79,9 +80,10 @@ function ProductsTab({ products, onAdd, onUpdate, onDelete }) {
     await onAdd({
       name: newProduct.name,
       description: newProduct.description,
+      category: newProduct.category,
       price_per_100g: parseFloat(newProduct.price_per_100g),
     });
-    setNewProduct({ name: '', description: '', price_per_100g: '' });
+    setNewProduct({ name: '', description: '', category: '', price_per_100g: '' });
     setShowForm(false);
   };
 
@@ -105,6 +107,11 @@ function ProductsTab({ products, onAdd, onUpdate, onDelete }) {
             onChange={(e) => setNewProduct((p) => ({ ...p, description: e.target.value }))}
           />
           <input
+            placeholder="Категорія"
+            value={newProduct.category}
+            onChange={(e) => setNewProduct((p) => ({ ...p, category: e.target.value }))}
+          />
+          <input
             type="number"
             step="0.01"
             placeholder="Ціна за 100 г"
@@ -125,7 +132,21 @@ function ProductsTab({ products, onAdd, onUpdate, onDelete }) {
             <div className="admin-product-main">
               <h3>{product.name}</h3>
               {product.description && <p>{product.description}</p>}
+              {product.category && <p className="product-category">{product.category}</p>}
               <div className="price-edit">
+                <label>
+                  Категорія:
+                  <input
+                    type="text"
+                    defaultValue={product.category || ''}
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value !== product.category) {
+                        onUpdate(product.id, { category: value });
+                      }
+                    }}
+                  />
+                </label>
                 <label>
                   Ціна/100г:
                   <input
