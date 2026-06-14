@@ -42,7 +42,7 @@ function OrdersTab({ orders, statuses, onStatusChange, orderSort, onSortChange }
   });
 
   return (
-    <> 
+    <>
       <div className="order-sorting">
         <label>
           Сортувати:
@@ -52,49 +52,50 @@ function OrdersTab({ orders, statuses, onStatusChange, orderSort, onSortChange }
           </select>
         </label>
       </div>
-    <div className="orders-list">
-      {sortedOrders.map((order) => (
-        <article key={order.id} className="order-card">
-          <div className="order-card-header">
-            <div>
-              <h3>№{order.id}</h3>
-              <p className="order-customer">
-                {order.last_name} {order.first_name}
-              </p>
-              <p className="order-meta">{order.phone}</p>
-              <p className="order-meta">{order.address}</p>
-              <p className="order-date">
-                {new Date(order.created_at).toLocaleString('uk-UA')}
-              </p>
+      <div className="orders-list">
+        {sortedOrders.map((order) => (
+          <article key={order.id} className="order-card">
+            <div className="order-card-header">
+              <div>
+                <h3>№{order.id}</h3>
+                <p className="order-customer">
+                  {order.last_name} {order.first_name}
+                </p>
+                <p className="order-meta">{order.phone}</p>
+                <p className="order-meta">{order.address}</p>
+                <p className="order-date">
+                  {new Date(order.created_at).toLocaleString('uk-UA')}
+                </p>
+              </div>
+              <div className="order-total-badge">{formatPrice(order.total)}</div>
             </div>
-            <div className="order-total-badge">{formatPrice(order.total)}</div>
-          </div>
 
-          <ul className="order-items-list">
-            {order.items.map((item) => (
-              <li key={item.id}>
-                {item.product_name} — {item.grams} г ({formatPrice(item.subtotal)})
-              </li>
-            ))}
-          </ul>
-
-          <label className="status-select">
-            <span>Статус</span>
-            <select
-              value={order.status}
-              onChange={(e) => onStatusChange(order.id, e.target.value)}
-              style={{ borderColor: STATUS_COLORS[order.status] }}
-            >
-              {Object.entries(statuses).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
+            <ul className="order-items-list">
+              {order.items.map((item) => (
+                <li key={item.id}>
+                  {item.product_name} — {item.grams} г ({formatPrice(item.subtotal)})
+                </li>
               ))}
-            </select>
-          </label>
-        </article>
-      ))}
-    </div>
+            </ul>
+
+            <label className="status-select">
+              <span>Статус</span>
+              <select
+                value={order.status}
+                onChange={(e) => onStatusChange(order.id, e.target.value)}
+                style={{ borderColor: STATUS_COLORS[order.status] }}
+              >
+                {Object.entries(statuses).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </article>
+        ))}
+      </div>
+    </>
   );
 }
 
