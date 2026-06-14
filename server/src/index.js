@@ -1,4 +1,4 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
@@ -6,11 +6,13 @@ import { fileURLToPath } from 'url';
 import { authMiddleware, adminMiddleware } from './auth.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
-import { handleBotUpdate, setupBotWebhook } from './telegram.js';
+import { handleBotUpdate, setupBotWebhook, startBotPolling } from './telegram.js';
 import './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.PORT || 3002;
+dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
+
+const PORT = process.env.PORT || 3001;
 
 const app = express();
 app.use(cors());
@@ -59,5 +61,8 @@ app.get('*', (req, res, next) => {
 
 app.listen(PORT, async () => {
   console.log(`Сервер запущено: http://localhost:${PORT}`);
-  await setupBotWebhook();
+  const botSetup = await setupBotWebhook();
+  if (botSetup.mode === 'polling') {
+    await startBotPolling();
+  }
 });
