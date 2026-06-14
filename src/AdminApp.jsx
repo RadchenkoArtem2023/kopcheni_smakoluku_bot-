@@ -57,7 +57,7 @@ function OrdersTab({ orders, statuses, onStatusChange, orderSort, onSortChange }
           <article key={order.id} className="order-card">
             <div className="order-card-header">
               <div>
-                <h3>№{order.id}</h3>
+                <h3>№{order.order_number ?? order.id}</h3>
                 <p className="order-customer">
                   {order.last_name} {order.first_name}
                 </p>
