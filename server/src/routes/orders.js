@@ -1,5 +1,12 @@
 import { Router } from 'express';
-import db from '../db.js';
+import {
+  getProductsCollection,
+  getOrdersCollection,
+  getOrderItemsCollection,
+  mapOrder,
+  mapOrderItem,
+  getObjectId,
+} from '../db.js';
 import {
   ORDER_STATUSES,
   sendTelegramMessage,
@@ -13,37 +20,51 @@ router.get('/statuses', (_req, res) => {
   res.json(ORDER_STATUSES);
 });
 
-router.get('/', (_req, res) => {
-  const orders = db
-    .prepare('SELECT * FROM orders ORDER BY created_at DESC')
-    .all();
+router.get('/', async (_req, res) => {
+  const ordersCollection = await getOrdersCollection();
+  const orderItemsCollection = await getOrderItemsCollection();
+  const orders = await ordersCollection.find().sort({ created_at: -1 }).toArray();
 
-  const getItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?');
-
-  const result = orders.map((order) => ({
-    ...order,
-    items: getItems.all(order.id),
-  }));
-
-  res.json(result);
-});
-
-router.get('/my', (req, res) => {
-  const orders = db
-    .prepare('SELECT * FROM orders WHERE telegram_user_id = ? ORDER BY created_at DESC')
-    .all(String(req.telegramUser.id));
-
-  const getItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?');
-
-  const result = orders.map((order) => ({
-    ...order,
-    items: getItems.all(order.id),
-  }));
+  const result = await Promise.all(
+    orders.map(async (order) => {
+      const items = await orderItemsCollection
+        .find({ order_id: order.id })
+        .toArray();
+      return {
+        ...mapOrder(order),
+        items: items.map(mapOrderItem),
+      };
+    })
+  );
 
   res.json(result);
 });
 
-router.post('/', (req, res) => {
+router.get('/my', async (req, res) => {
+  const ordersCollection = await getOrdersCollection();
+  const orderItemsCollection = await getOrderItemsCollection();
+
+  const orders = await ordersCollection
+    .find({ telegram_user_id: String(req.telegramUser.id) })
+    .sort({ created_at: -1 })
+    .toArray();
+
+  const result = await Promise.all(
+    orders.map(async (order) => {
+      const items = await orderItemsCollection
+        .find({ order_id: order.id })
+        .toArray();
+      return {
+        ...mapOrder(order),
+        items: items.map(mapOrderItem),
+      };
+    })
+  );
+
+  res.json(result);
+});
+
+router.post('/', async (req, res) => {
   const { first_name, last_name, phone, address, items } = req.body;
 
   if (!first_name?.trim() || !last_name?.trim() || !phone?.trim() || !address?.trim()) {
@@ -54,16 +75,17 @@ router.post('/', (req, res) => {
     return res.status(400).json({ error: 'Додайте хоча б одну позицію' });
   }
 
-  const getProduct = db.prepare(`
-    SELECT * FROM products
-    WHERE id = ? AND is_active = 1 AND is_stop_listed = 0
-  `);
-
+  const productsCollection = await getProductsCollection();
   const orderItems = [];
   let total = 0;
 
   for (const item of items) {
-    const product = getProduct.get(item.product_id);
+    const product = await productsCollection.findOne({
+      _id: getObjectId(item.product_id),
+      is_active: true,
+      is_stop_listed: false,
+    });
+
     if (!product) {
       return res.status(400).json({ error: `Позиція ${item.product_id} недоступна` });
     }
@@ -77,7 +99,7 @@ router.post('/', (req, res) => {
     total += subtotal;
 
     orderItems.push({
-      product_id: product.id,
+      product_id: product._id.toString(),
       product_name: product.name,
       grams,
       price_per_100g: product.price_per_100g,
@@ -85,64 +107,52 @@ router.post('/', (req, res) => {
     });
   }
 
-  const createOrder = db.transaction(() => {
-    const orderResult = db
-      .prepare(`
-        INSERT INTO orders (telegram_user_id, first_name, last_name, phone, address, total)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `)
-      .run(
-        String(req.telegramUser.id),
-        first_name.trim(),
-        last_name.trim(),
-        phone.trim(),
-        address.trim(),
-        total
-      );
+  const ordersCollection = await getOrdersCollection();
+  const orderItemsCollection = await getOrderItemsCollection();
 
-    const orderId = orderResult.lastInsertRowid;
-    const insertItem = db.prepare(`
-      INSERT INTO order_items (order_id, product_id, product_name, grams, price_per_100g, subtotal)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-
-    for (const item of orderItems) {
-      insertItem.run(
-        orderId,
-        item.product_id,
-        item.product_name,
-        item.grams,
-        item.price_per_100g,
-        item.subtotal
-      );
-    }
-
-    return {
-      id: orderId,
-      telegram_user_id: String(req.telegramUser.id),
-      first_name: first_name.trim(),
-      last_name: last_name.trim(),
-      phone: phone.trim(),
-      address: address.trim(),
-      status: 'new',
-      total,
-      created_at: new Date().toISOString(),
-    };
+  const orderResult = await ordersCollection.insertOne({
+    telegram_user_id: String(req.telegramUser.id),
+    first_name: first_name.trim(),
+    last_name: last_name.trim(),
+    phone: phone.trim(),
+    address: address.trim(),
+    status: 'new',
+    total,
+    created_at: new Date(),
   });
 
-  const order = createOrder();
+  const orderId = orderResult.insertedId.toString();
 
-  sendTelegramMessage(
-    req.telegramUser.id,
-    formatOrderConfirmation(order, orderItems)
-  ).catch(console.error);
+  const itemsToInsert = orderItems.map((item) => ({
+    order_id: orderId,
+    product_id: item.product_id,
+    product_name: item.product_name,
+    grams: item.grams,
+    price_per_100g: item.price_per_100g,
+    subtotal: item.subtotal,
+  }));
 
+  await orderItemsCollection.insertMany(itemsToInsert);
+
+  const order = {
+    id: orderId,
+    telegram_user_id: String(req.telegramUser.id),
+    first_name: first_name.trim(),
+    last_name: last_name.trim(),
+    phone: phone.trim(),
+    address: address.trim(),
+    status: 'new',
+    total,
+    created_at: new Date().toISOString(),
+  };
+
+  sendTelegramMessage(req.telegramUser.id, formatOrderConfirmation(order, orderItems)).catch(console.error);
   notifyAdmins(order, orderItems).catch(console.error);
 
   res.status(201).json({ ...order, items: orderItems });
 });
 
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/status', async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
@@ -150,15 +160,21 @@ router.patch('/:id/status', (req, res) => {
     return res.status(400).json({ error: 'Невалідний статус' });
   }
 
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+  const objectId = getObjectId(id);
+  if (!objectId) return res.status(404).json({ error: 'Замовлення не знайдено' });
+
+  const ordersCollection = await getOrdersCollection();
+  const orderItemsCollection = await getOrderItemsCollection();
+
+  const order = await ordersCollection.findOne({ _id: objectId });
   if (!order) return res.status(404).json({ error: 'Замовлення не знайдено' });
 
-  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+  await ordersCollection.updateOne({ _id: objectId }, { $set: { status } });
 
-  const updated = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(id);
+  const updated = await ordersCollection.findOne({ _id: objectId });
+  const items = await orderItemsCollection.find({ order_id: updated._id.toString() }).toArray();
 
-  res.json({ ...updated, items });
+  res.json({ ...mapOrder(updated), items: items.map(mapOrderItem) });
 });
 
 export default router;

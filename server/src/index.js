@@ -7,7 +7,7 @@ import { authMiddleware, adminMiddleware } from './auth.js';
 import productsRouter from './routes/products.js';
 import ordersRouter from './routes/orders.js';
 import { handleBotUpdate, setupBotWebhook, startBotPolling } from './telegram.js';
-import './db.js';
+import { initDb } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
@@ -61,6 +61,15 @@ app.get('*', (req, res, next) => {
 
 app.listen(PORT, async () => {
   console.log(`Сервер запущено: http://localhost:${PORT}`);
+
+  try {
+    await initDb();
+    console.log('MongoDB підключено');
+  } catch (err) {
+    console.error('Не вдалося підключитися до MongoDB:', err);
+    process.exit(1);
+  }
+
   const botSetup = await setupBotWebhook();
   if (botSetup.mode === 'polling') {
     await startBotPolling();

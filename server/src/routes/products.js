@@ -1,87 +1,98 @@
 import { Router } from 'express';
-import db from '../db.js';
+import {
+  getProductsCollection,
+  getObjectId,
+  mapProduct,
+} from '../db.js';
 
 const router = Router();
 
-router.get('/menu', (_req, res) => {
-  const products = db
-    .prepare(`
-      SELECT id, name, description, price_per_100g
-      FROM products
-      WHERE is_active = 1 AND is_stop_listed = 0
-      ORDER BY sort_order ASC, name ASC
-    `)
-    .all();
+router.get('/menu', async (_req, res) => {
+  const productsCollection = await getProductsCollection();
+  const products = await productsCollection
+    .find({ is_active: true, is_stop_listed: false }, {
+      projection: {
+        name: 1,
+        description: 1,
+        price_per_100g: 1,
+        sort_order: 1,
+        is_active: 1,
+        is_stop_listed: 1,
+        created_at: 1,
+      },
+    })
+    .sort({ sort_order: 1, name: 1 })
+    .toArray();
 
-  res.json(products);
+  res.json(products.map(mapProduct));
 });
 
-router.get('/', (_req, res) => {
-  const products = db
-    .prepare(`
-      SELECT *
-      FROM products
-      ORDER BY sort_order ASC, name ASC
-    `)
-    .all();
-
-  res.json(products);
+router.get('/', async (_req, res) => {
+  const productsCollection = await getProductsCollection();
+  const products = await productsCollection.find().sort({ sort_order: 1, name: 1 }).toArray();
+  res.json(products.map(mapProduct));
 });
 
-router.post('/', (req, res) => {
+router.post('/', async (req, res) => {
   const { name, description = '', price_per_100g, sort_order = 0 } = req.body;
 
   if (!name?.trim() || !price_per_100g || price_per_100g <= 0) {
     return res.status(400).json({ error: 'Назва та ціна обов\'язкові' });
   }
 
-  const result = db
-    .prepare(`
-      INSERT INTO products (name, description, price_per_100g, sort_order)
-      VALUES (?, ?, ?, ?)
-    `)
-    .run(name.trim(), description.trim(), price_per_100g, sort_order);
+  const productsCollection = await getProductsCollection();
+  const result = await productsCollection.insertOne({
+    name: name.trim(),
+    description: description.trim(),
+    price_per_100g,
+    sort_order,
+    is_active: true,
+    is_stop_listed: false,
+    created_at: new Date(),
+  });
 
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
-  res.status(201).json(product);
+  const product = await productsCollection.findOne({ _id: result.insertedId });
+  res.status(201).json(mapProduct(product));
 });
 
-router.patch('/:id', (req, res) => {
+router.patch('/:id', async (req, res) => {
   const { id } = req.params;
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
-  if (!product) return res.status(404).json({ error: 'Позицію не знайдено' });
+  const objectId = getObjectId(id);
+  if (!objectId) return res.status(404).json({ error: 'Позицію не знайдено' });
 
   const { name, description, price_per_100g, is_active, is_stop_listed, sort_order } = req.body;
-
-  db.prepare(`
-    UPDATE products SET
-      name = COALESCE(?, name),
-      description = COALESCE(?, description),
-      price_per_100g = COALESCE(?, price_per_100g),
-      is_active = COALESCE(?, is_active),
-      is_stop_listed = COALESCE(?, is_stop_listed),
-      sort_order = COALESCE(?, sort_order)
-    WHERE id = ?
-  `).run(
-    name?.trim() ?? null,
-    description?.trim() ?? null,
-    price_per_100g ?? null,
-    is_active ?? null,
-    is_stop_listed ?? null,
-    sort_order ?? null,
-    id
-  );
-
-  const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
-  res.json(updated);
-});
-
-router.delete('/:id', (req, res) => {
-  const { id } = req.params;
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+  const productsCollection = await getProductsCollection();
+  const product = await productsCollection.findOne({ _id: objectId });
   if (!product) return res.status(404).json({ error: 'Позицію не знайдено' });
 
-  db.prepare('DELETE FROM products WHERE id = ?').run(id);
+  await productsCollection.updateOne(
+    { _id: objectId },
+    {
+      $set: {
+        ...(name !== undefined ? { name: name.trim() } : {}),
+        ...(description !== undefined ? { description: description.trim() } : {}),
+        ...(price_per_100g !== undefined ? { price_per_100g } : {}),
+        ...(is_active !== undefined ? { is_active } : {}),
+        ...(is_stop_listed !== undefined ? { is_stop_listed } : {}),
+        ...(sort_order !== undefined ? { sort_order } : {}),
+      },
+    }
+  );
+
+  const updated = await productsCollection.findOne({ _id: objectId });
+  res.json(mapProduct(updated));
+});
+
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  const objectId = getObjectId(id);
+  if (!objectId) return res.status(404).json({ error: 'Позицію не знайдено' });
+
+  const productsCollection = await getProductsCollection();
+  const product = await productsCollection.findOne({ _id: objectId });
+  if (!product) return res.status(404).json({ error: 'Позицію не знайдено' });
+
+  await productsCollection.deleteOne({ _id: objectId });
   res.json({ success: true });
 });
 

@@ -44,6 +44,12 @@ PORT=3001
 
 Ваш Telegram ID можна дізнатися у [@userinfobot](https://t.me/userinfobot).
 
+Якщо фронтенд і бекенд розгорнуті на різних доменах, додайте у Vercel або у файл `.env`:
+
+```env
+VITE_API_URL=https://your-backend.example.com/api
+```
+
 ### 3. Запуск
 
 ```bash
