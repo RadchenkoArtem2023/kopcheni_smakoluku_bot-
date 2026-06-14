@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { authMiddleware, adminMiddleware } from './auth.js';
@@ -13,9 +14,42 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const PORT = process.env.PORT || 3001;
+const START_LOG_PATH = path.join(__dirname, '..', 'logs', 'start.log');
+
+function writeStartupLog(message) {
+  try {
+    const logDir = path.dirname(START_LOG_PATH);
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true });
+    }
+    fs.appendFileSync(START_LOG_PATH, `${new Date().toISOString()} - ${message}\n`);
+  } catch (err) {
+    console.error('Не вдалося записати лог старту:', err);
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  const message = `Uncaught Exception: ${err.stack || err.message}`;
+  console.error(message);
+  writeStartupLog(message);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason) => {
+  const message = `Unhandled Rejection: ${reason?.stack || reason}`;
+  console.error(message);
+  writeStartupLog(message);
+});
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: true,
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'X-Telegram-Init-Data'],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.get('/api/health', (_req, res) => {
@@ -60,13 +94,18 @@ app.get('*', (req, res, next) => {
 });
 
 app.listen(PORT, async () => {
+  const startupMessage = `Server started on port ${PORT}`;
   console.log(`Сервер запущено: http://localhost:${PORT}`);
+  writeStartupLog(startupMessage);
 
   try {
     await initDb();
     console.log('MongoDB підключено');
+    writeStartupLog('MongoDB підключено');
   } catch (err) {
-    console.error('Не вдалося підключитися до MongoDB:', err);
+    const errMsg = `Не вдалося підключитися до MongoDB: ${err.message || err}`;
+    console.error(errMsg);
+    writeStartupLog(errMsg);
     process.exit(1);
   }
 

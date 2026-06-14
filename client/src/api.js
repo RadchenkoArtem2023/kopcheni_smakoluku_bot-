@@ -5,20 +5,25 @@ function getInitData() {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Telegram-Init-Data': getInitData(),
-      ...options.headers,
-    },
-  });
+  const url = `${API_BASE}${path}`;
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Telegram-Init-Data': getInitData(),
+        ...options.headers,
+      },
+    });
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(data.error || 'Помилка запиту');
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || `Помилка запиту: ${response.status} ${response.statusText}`);
+    }
+    return data;
+  } catch (err) {
+    throw new Error(`Fetch error: ${url} — ${err.message}`);
   }
-  return data;
 }
 
 export const api = {
