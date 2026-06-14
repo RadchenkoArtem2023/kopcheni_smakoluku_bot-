@@ -1,4 +1,15 @@
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+function normalizeApiUrl(value) {
+  if (!value) return '/api';
+  const trimmed = value.trim();
+  if (trimmed.startsWith('/') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+const API_BASE = import.meta.env.DEV
+  ? '/api'
+  : normalizeApiUrl(import.meta.env.VITE_API_URL);
 
 function getInitData() {
   return window.Telegram?.WebApp?.initData || '';

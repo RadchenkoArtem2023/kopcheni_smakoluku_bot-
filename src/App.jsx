@@ -35,13 +35,20 @@ export default function App() {
 
     api
       .getMenu()
-      .then(setProducts)
+      .then((data) => {
+        if (!Array.isArray(data)) {
+          throw new Error('Невірний формат меню від API');
+        }
+        setProducts(data);
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }, [ready, user]);
 
+  const normalizedProducts = Array.isArray(products) ? products : [];
+
   const cartItems = useMemo(() => {
-    return products
+    return normalizedProducts
       .filter((p) => cart[p.id] > 0)
       .map((p) => ({
         product_id: p.id,
@@ -50,7 +57,7 @@ export default function App() {
         price_per_100g: p.price_per_100g,
         subtotal: calcSubtotal(p.price_per_100g, cart[p.id]),
       }));
-  }, [products, cart]);
+  }, [normalizedProducts, cart]);
 
   const total = cartItems.reduce((sum, item) => sum + item.subtotal, 0);
 
